@@ -802,6 +802,80 @@ with gr.Blocks(title="A1_Nexus 智能控制台") as demo:
             gr.Markdown("配置 API Keys 和默认模型。修改后点击保存即可生效。")
             
             with gr.Tabs():
+                with gr.TabItem("🔑 API 密钥配置 (.env)"):
+                    gr.Markdown("配置全局的 API 密钥和基础 URL。这些配置会保存在 `.env` 文件中，并覆盖 `config.yaml` 中的同名配置。")
+                    
+                    def get_env_config():
+                        load_dotenv(override=True)
+                        return {
+                            "api_key": os.environ.get("OPENAI_API_KEY", ""),
+                            "base_url": os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+                            "model": os.environ.get("DEFAULT_MODEL", "gpt-4o-mini")
+                        }
+                        
+                    def save_env_config(api_key, base_url, model):
+                        env_path = Path(".env")
+                        env_content = f"""OPENAI_API_KEY="{api_key}"
+OPENAI_BASE_URL="{base_url}"
+DEFAULT_MODEL="{model}"
+"""
+                        try:
+                            with open(env_path, "w", encoding="utf-8") as f:
+                                f.write(env_content)
+                            # 重新加载环境变量
+                            load_dotenv(override=True)
+                            # 重新加载配置管理器
+                            global config_mgr
+                            config_mgr = ConfigManager()
+                            return "✅ API 配置已保存到 .env 文件！"
+                        except Exception as e:
+                            return f"❌ 保存失败: {e}"
+                            
+                    def test_api_connection(api_key, base_url, model):
+                        if not api_key:
+                            return "❌ 请先输入 API Key"
+                            
+                        try:
+                            from openai import OpenAI
+                            client = OpenAI(api_key=api_key, base_url=base_url)
+                            
+                            # 发送一个简单的测试请求
+                            response = client.chat.completions.create(
+                                model=model,
+                                messages=[{"role": "user", "content": "Hello, this is a test. Reply with 'OK'."}],
+                                max_tokens=10
+                            )
+                            
+                            reply = response.choices[0].message.content
+                            return f"✅ API 连接成功！模型返回: {reply}"
+                        except Exception as e:
+                            return f"❌ API 连接失败: {e}"
+
+                    env_cfg = get_env_config()
+                    
+                    with gr.Row():
+                        with gr.Column(scale=2):
+                            env_api_key = gr.Textbox(label="OPENAI_API_KEY", value=env_cfg["api_key"], type="password", placeholder="sk-...")
+                            env_base_url = gr.Textbox(label="OPENAI_BASE_URL", value=env_cfg["base_url"], placeholder="https://api.openai.com/v1")
+                            env_model = gr.Textbox(label="DEFAULT_MODEL", value=env_cfg["model"], placeholder="gpt-4o-mini")
+                        with gr.Column(scale=1):
+                            gr.Markdown("### 操作")
+                            save_env_btn = gr.Button("💾 保存配置", variant="primary")
+                            test_api_btn = gr.Button("🔌 测试 API 连接", variant="secondary")
+                            env_msg = gr.Markdown("")
+                            
+                    save_env_btn.click(
+                        fn=save_env_config,
+                        inputs=[env_api_key, env_base_url, env_model],
+                        outputs=[env_msg]
+                    )
+                    
+                    test_api_btn.click(
+                        fn=test_api_connection,
+                        inputs=[env_api_key, env_base_url, env_model],
+                        outputs=[env_msg]
+                    )
+
                 with gr.TabItem("📝 文本配置 (config.yaml)"):
                     config_editor = gr.TextArea(label="config.yaml", value=get_config_yaml(), lines=25)
                     save_config_btn = gr.Button("💾 保存配置", variant="primary")
