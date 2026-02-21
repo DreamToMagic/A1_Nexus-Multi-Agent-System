@@ -6,6 +6,7 @@ import glob
 from pathlib import Path
 import logging
 import argparse
+from dotenv import load_dotenv
 
 try:
     from rich.console import Console
@@ -27,6 +28,9 @@ console = Console()
 class ConfigManager:
     """管理配置文件读取与模型供应选择"""
     def __init__(self, config_file="config.yaml"):
+        # 加载环境变量
+        load_dotenv()
+        
         # 兼容在根目录运行的情况
         if not os.path.exists(config_file):
             config_file = os.path.join("SYSTEM", "config.yaml")
@@ -34,6 +38,18 @@ class ConfigManager:
                 config_file = os.path.join("A1_Nexus_Improved", "config.yaml")
         with open(config_file, "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
+            
+        # 替换配置中的环境变量
+        self._replace_env_vars(self.config)
+        
+    def _replace_env_vars(self, config_dict):
+        """递归替换配置字典中的环境变量"""
+        for key, value in config_dict.items():
+            if isinstance(value, dict):
+                self._replace_env_vars(value)
+            elif isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+                env_var = value[2:-1]
+                config_dict[key] = os.environ.get(env_var, "")
         
     def get_provider_config(self, role_name):
         """根据角色获取对应的 API 提供商配置和模型"""
@@ -370,10 +386,6 @@ class NexusEngine:
 
         if "YOUR_" in provider_cfg["api_key"]:
             console.print(f"[red]❌ 错误: 您尚未在 config.yaml 中配置 {provider_name} 的 API Key！[/red]")
-            # 如果是自动模式，遇到 API Key 错误应该退出，避免死循环
-            if self.auto_mode:
-                console.print("[red]自动模式下遇到 API Key 错误，系统退出。[/red]")
-                sys.exit(1)
             return False
             
         client = OpenAI(

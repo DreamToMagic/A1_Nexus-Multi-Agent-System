@@ -5,6 +5,10 @@ from pathlib import Path
 import threading
 import time
 import re
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 导入核心引擎
 from nexus_core import NexusEngine, ConfigManager
@@ -94,9 +98,11 @@ def auto_run_all(progress=gr.Progress()):
     """全自动执行所有任务"""
     global auto_run_flag
     if not auto_run_flag:
-        return "⏸️ 自动流水线已暂停。"
+        yield "⏸️ 自动流水线已暂停。"
+        return
         
     log_output = "🚀 开始全自动流水线...\n\n"
+    yield log_output
     
     while auto_run_flag:
         engine.archive_done_tasks()
@@ -105,18 +111,21 @@ def auto_run_all(progress=gr.Progress()):
         if not tasks:
             log_output += "✅ 所有任务已完成！\n"
             auto_run_flag = False
+            yield log_output
             break
             
         runnable_tasks = engine.get_runnable_tasks(tasks)
         if not runnable_tasks:
             log_output += "⏳ 没有可执行的任务，流水线停止。\n"
             auto_run_flag = False
+            yield log_output
             break
             
         target_task = runnable_tasks[0]
         progress(0, desc=f"正在执行: {target_task['id']}")
         
         log_output += f"▶️ 执行任务: {target_task['id']} ({target_task['receiver']})\n"
+        yield log_output
         
         # 捕获输出
         import io
@@ -125,19 +134,21 @@ def auto_run_all(progress=gr.Progress()):
         with redirect_stdout(f):
             success = engine.execute_task(target_task)
             
+        output = f.getvalue()
+        
         if not success:
-            log_output += "❌ 任务执行失败，流水线中止。\n"
+            log_output += f"❌ 任务执行失败，流水线中止。\n\n{output}\n"
             auto_run_flag = False
+            yield log_output
             break
             
-        log_output += "✅ 任务完成。\n\n"
+        log_output += f"✅ 任务完成。\n\n{output}\n"
+        yield log_output
         
         # 记录工作历史
         record_work_history(target_task, success)
         
         time.sleep(1) # 稍微暂停一下，避免 API 频率过高
-        
-    return log_output
 
 def get_work_history():
     """获取工作历史记录"""
@@ -276,24 +287,28 @@ def auto_breakdown_task(macro_task_desc, progress=gr.Progress()):
         
     progress(0, desc="正在调用 P1 思考拆解方案...")
     
+    # 获取当前可用的角色列表
+    available_personas = [p.stem for p in engine.personas_dir.glob("*.md")]
+    personas_str = ", ".join(available_personas) if available_personas else "P8_技术, P8_文案, P9_行政合规审计"
+    
     # 构造 P1 的 Prompt
-    system_prompt = """你是 P1-首席执行架构师 (Nexus-001)。
+    system_prompt = f"""你是 P1-首席执行架构师 (Nexus-001)。
 你的任务是将用户的宏大目标拆解为多个子任务，下发给各个虚拟员工。
 请严格按照以下 JSON 格式输出拆解后的任务列表，不要输出任何其他废话：
 [
-  {
-    "receiver": "P8_技术",
+  {{
+    "receiver": "P8_技术主管",
     "depends_on": "NONE",
     "description": "搭建基础框架..."
-  },
-  {
-    "receiver": "P8_文案",
+  }},
+  {{
+    "receiver": "P8_文案主管",
     "depends_on": "ID001",
     "description": "编写文案..."
-  }
+  }}
 ]
 注意：
-1. receiver 必须是现有的角色名（如 P8_技术, P8_文案, P9_行政合规审计）。
+1. receiver 必须是现有的角色名，当前可用的角色有：{personas_str}。
 2. depends_on 如果没有依赖填 NONE，如果有依赖填对应的 ID（如 ID001）。ID 是按顺序生成的，第一个任务是 ID001，第二个是 ID002，依此类推。
 """
     
@@ -533,7 +548,7 @@ def toggle_ui_mode(mode):
     ]
 
 # 构建 Gradio 界面
-with gr.Blocks(title="A1_Nexus 智能控制台", theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="blue")) as demo:
+with gr.Blocks(title="A1_Nexus 智能控制台") as demo:
     with gr.Row():
         with gr.Column(scale=4):
             gr.Markdown("# 🚀 A1_Nexus 智能控制台")
@@ -555,7 +570,7 @@ with gr.Blocks(title="A1_Nexus 智能控制台", theme=gr.themes.Soft(primary_hu
                     step_btn = gr.Button("▶️ 执行下一步 (手动)", variant="secondary")
                     auto_btn = gr.Button("🚀 一键全自动执行", variant="primary")
                     gr.Markdown("### 📝 执行日志")
-                    log_output = gr.Markdown("等待执行...")
+                    log_output = gr.Textbox(label="执行日志", lines=15, max_lines=30, interactive=False, value="等待执行...")
             
             step_btn.click(fn=run_one_step, outputs=log_output).then(
                 fn=get_task_list, outputs=task_list_md
@@ -593,7 +608,7 @@ with gr.Blocks(title="A1_Nexus 智能控制台", theme=gr.themes.Soft(primary_hu
             with gr.Row():
                 chat_persona_dropdown = gr.Dropdown(choices=list(CHAT_PERSONAS.keys()), value="温柔助手", label="选择助手性格")
             
-            chatbot = gr.Chatbot(height=400, label="聊天窗口")
+            chatbot = gr.Chatbot(height=300, label="聊天窗口")
             with gr.Row():
                 chat_input = gr.Textbox(show_label=False, placeholder="输入你想说的话，按回车发送...", scale=4)
                 chat_submit = gr.Button("发送", variant="primary", scale=1)
@@ -828,11 +843,71 @@ with gr.Blocks(title="A1_Nexus 智能控制台", theme=gr.themes.Soft(primary_hu
                                     
                             ui_elements.append(f"**{role}**: 当前使用 `{matched_display}`")
                             
-                        return "\n\n".join(ui_elements) + "\n\n*(提示：目前请在左侧的 `config.yaml` 文本中直接修改 `role_overrides` 节点来更改角色模型分配。)*"
+                        return "\n\n".join(ui_elements)
                         
-                    role_models_display = gr.Markdown(get_role_overrides_ui())
-                    refresh_roles_btn = gr.Button("🔄 刷新显示", size="sm")
+                    def update_role_model(role_name, selected_model_display):
+                        global config_mgr
+                        if not role_name or not selected_model_display:
+                            return "❌ 请选择角色和模型", get_role_overrides_ui()
+                            
+                        import yaml
+                        config_path = Path("SYSTEM/config.yaml")
+                        if not config_path.exists():
+                            config_path = Path("config.yaml")
+                            
+                        with open(config_path, "r", encoding="utf-8") as f:
+                            config = yaml.safe_load(f)
+                            
+                        # 解析选中的模型
+                        all_models = config_mgr.get_all_models()
+                        selected_model_info = next((m for m in all_models if m["display"] == selected_model_display), None)
+                        
+                        if not selected_model_info:
+                            return "❌ 找不到选中的模型信息", get_role_overrides_ui()
+                            
+                        if "role_overrides" not in config:
+                            config["role_overrides"] = {}
+                            
+                        config["role_overrides"][role_name] = {
+                            "provider": selected_model_info["provider"],
+                            "model": selected_model_info["model_id"]
+                        }
+                        
+                        with open(config_path, "w", encoding="utf-8") as f:
+                            yaml.dump(config, f, allow_unicode=True, sort_keys=False)
+                            
+                        # 重新加载配置
+                        config_mgr = ConfigManager()
+                        
+                        return f"✅ 成功将 {role_name} 的模型设置为 {selected_model_display}", get_role_overrides_ui()
+
+                    with gr.Row():
+                        with gr.Column(scale=1):
+                            gr.Markdown("### 当前分配情况")
+                            role_models_display = gr.Markdown(get_role_overrides_ui())
+                            refresh_roles_btn = gr.Button("🔄 刷新显示", size="sm")
+                        with gr.Column(scale=1):
+                            gr.Markdown("### 修改分配")
+                            # 获取所有角色
+                            personas = [p.stem for p in engine.personas_dir.glob("*.md")]
+                            if not personas:
+                                personas = ["P1_Nexus", "P8_技术", "P8_文案", "P9_行政合规审计"]
+                            
+                            # 获取所有模型
+                            all_models = config_mgr.get_all_models()
+                            model_choices = [m["display"] for m in all_models]
+                            
+                            role_dropdown = gr.Dropdown(choices=personas, label="选择角色")
+                            model_dropdown = gr.Dropdown(choices=model_choices, label="选择模型")
+                            update_role_btn = gr.Button("💾 保存分配", variant="primary")
+                            update_role_msg = gr.Markdown("")
+                            
                     refresh_roles_btn.click(fn=get_role_overrides_ui, outputs=[role_models_display])
+                    update_role_btn.click(
+                        fn=update_role_model,
+                        inputs=[role_dropdown, model_dropdown],
+                        outputs=[update_role_msg, role_models_display]
+                    )
             
     # UI 模式切换逻辑
     ui_mode_radio.change(
@@ -848,4 +923,4 @@ if __name__ == "__main__":
     print("正在启动 Web UI...")
     # 禁用代理以避免 502 错误
     os.environ["no_proxy"] = "localhost,127.0.0.1,0.0.0.0"
-    demo.launch(server_name="127.0.0.1", server_port=8080, share=False, theme=gr.themes.Soft())
+    demo.launch(server_name="127.0.0.1", server_port=8080, share=False, theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="blue"))

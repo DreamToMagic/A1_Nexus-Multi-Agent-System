@@ -23,6 +23,8 @@ ARCHIVE_BACKUP_*/
 MESSAGES/
 PROJECT_SPACE/
 *.log
+SYSTEM/stop_signal.txt
+SYSTEM/work_history.json
 
 # 忽略本地环境变量文件
 .env
