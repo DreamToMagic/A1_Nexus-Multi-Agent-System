@@ -75,7 +75,7 @@ def run_one_step():
     output = f.getvalue()
     
     # 记录工作历史
-    record_work_history(target_task, success)
+    re d_work_history(target_task, success)
     
     if success:
         return log_msg + "✅ 任务执行成功！\n\n" + "```text\n" + output + "\n```"
@@ -508,7 +508,7 @@ def chat_with_assistant(message, history, persona_name):
     
     full_system_prompt = f"{persona_prompt}\n\n【当前系统状态参考（仅供参考，用户不问就别主动提）】\n{system_status}"
     
-    provider_name, provider_cfg, model_name = config_mgr.get_provider_config("P1_Nexus")
+    provider_name, provider_cfg, model_name = config_mgr.get_provider_config(persona_name)
     
     from openai import OpenAI
     client = OpenAI(
@@ -964,6 +964,13 @@ DEFAULT_MODEL="{model}"
                             gr.Markdown("### 修改分配")
                             # 获取所有角色
                             personas = [p.stem for p in engine.personas_dir.glob("*.md")]
+                            
+                            # 添加系统内置角色和聊天助手
+                            builtin_roles = ["P1_Nexus", "P8_架构师"] + list(CHAT_PERSONAS.keys())
+                            for role in builtin_roles:
+                                if role not in personas:
+                                    personas.append(role)
+                                    
                             if not personas:
                                 personas = ["P1_Nexus", "P8_技术", "P8_文案", "P9_行政合规审计"]
                             
