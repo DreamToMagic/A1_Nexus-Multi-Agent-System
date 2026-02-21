@@ -1,0 +1,89 @@
+api_providers:
+  default: gemini
+  providers:
+    deepseek:
+      base_url: "https://api.deepseek.com"
+      api_key: "YOUR_DEEPSEEK_API_KEY_HERE"
+      models:
+        default: "deepseek-chat"
+        coder: "deepseek-coder"
+        reasoner: "deepseek-reasoner"
+    
+    gemini:
+      base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+      api_key: "YOUR_GEMINI_API_KEY_HERE"
+      models:
+        default: "gemini-2.5-flash"
+        flash_2: "gemini-2.0-flash"
+        lite_2: "gemini-2.0-flash-lite"
+        pro_2: "gemini-2.0-pro-exp"
+        thinking_2: "gemini-2.0-flash-thinking-exp"
+        flash_2_5: "gemini-2.5-flash"
+        pro_2_5: "gemini-2.5-pro"
+        flash_3: "gemini-3-flash-preview"
+        pro_3: "gemini-3-pro-preview"
+        flash_3_1: "gemini-3.1-flash-preview"
+        pro_3_1: "gemini-3.1-pro-preview"
+
+    siliconflow:
+      base_url: "https://api.siliconflow.cn/v1"
+      api_key: "YOUR_SILICONFLOW_API_KEY_HERE"
+      models:
+        default: "Qwen/Qwen2.5-72B-Instruct"
+
+    openai:
+      base_url: "https://api.openai.com/v1"
+      api_key: "YOUR_OPENAI_API_KEY_HERE"
+      models:
+        default: "gpt-4o"
+        
+    anthropic:
+      base_url: "https://api.anthropic.com/v1"
+      api_key: "YOUR_ANTHROPIC_API_KEY_HERE"
+      models:
+        default: "claude-3-7-sonnet-20250219"
+        opus: "claude-3-opus-20240229"
+        haiku: "claude-3-5-haiku-20241022"
+        
+    groq:
+      base_url: "https://api.groq.com/openai/v1"
+      api_key: "YOUR_GROQ_API_KEY_HERE"
+      models:
+        default: "llama3-70b-8192"
+        mixtral: "mixtral-8x7b-32768"
+        gemma: "gemma-7b-it"
+        
+    openrouter:
+      base_url: "https://openrouter.ai/api/v1"
+      api_key: "YOUR_OPENROUTER_API_KEY_HERE"
+      models:
+        default: "anthropic/claude-3.7-sonnet"
+        gpt4o: "openai/gpt-4o"
+        llama3: "meta-llama/llama-3-70b-instruct"
+
+# 可以根据角色配置不同的模型提供商
+# 如果未指定，则使用上面的 default
+role_overrides:
+  P1-Nexus:
+    provider: gemini
+    model: gemini-2.5-flash
+  P7-研发:
+    provider: gemini
+    model: gemini-2.5-flash
+  P8-技术:
+    provider: gemini
+    model: gemini-2.5-flash
+  P8-文案:
+    provider: gemini
+    model: gemini-2.5-flash
+  P8-美术:
+    provider: gemini
+    model: gemini-2.5-flash
+  P9-行政:
+    provider: gemini
+    model: gemini-2.5-flash
+
+system:
+  max_retries: 3
+  messages_dir: "MESSAGES"
+  archive_dir: "ARCHIVE"
